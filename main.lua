@@ -8,6 +8,7 @@ function Initialize(Plugin)
   cPluginManager:AddHook(cPluginManager.HOOK_CHUNK_AVAILABLE, MyOnChunkAvailable);
   cPluginManager:AddHook(cPluginManager.HOOK_UPDATING_SIGN, MyOnUpdatingSign);
 	cPluginManager:AddHook(cPluginManager.HOOK_PLAYER_BREAKING_BLOCK, MyOnPlayerBreakingBlock);
+	cPluginManager:AddHook(cPluginManager.HOOK_PLAYER_PLACING_BLOCK, MyOnPlayerPlacingBlock);
 
 
 	PLUGIN = Plugin -- NOTE: only needed if you want OnDisable() to use GetName() or something like that
@@ -23,6 +24,17 @@ end
 
 function OnDisable()
 	LOG(PLUGIN:GetName() .. " is shutting down...")
+end
+
+function MyOnPlayerPlacingBlock(Player, BlockX, BlockY, BlockZ, BlockType, BlockMeta)
+	if fences[BlockX] == nil or fences[BlockX][BlockZ] == nil then	-- belongs the block to nobody?
+		return false
+	end
+	if fences[BlockX][BlockZ][Player:GetName()] == true then -- belongs the block to the player breaking it?
+		return false
+	end
+	Player:SendMessage("you can't place in this garden")
+	return true	-- you can't place anything
 end
 
 function MyOnPlayerBreakingBlock(Player, BlockX, BlockY, BlockZ, BlockFace, BlockType, BlockMeta)
