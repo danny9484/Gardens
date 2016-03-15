@@ -77,7 +77,7 @@ function process_garden(World, X, Y, Z, register, Player_name, friend1, friend2)
 	return true
 end
 
-function register(X, Z, Player_name)
+function register_fence(X, Z, Player_name)
 	fences[X][Z][Player_name] = true
 	fences[X + 1][Z][Player_name] = true
 	fences[X + 1][Z + 1][Player_name] = true
@@ -98,13 +98,43 @@ function fence_function(World, X, Y, Z, D, register, Player_name, friend1, frien
 		if fences[X][Z] == nil then
 			fences[X][Z] = {}
 		end
+		if fences[X - 1] == nil then
+			fences[X - 1] = {}
+		end
+		if fences[X + 1] == nil then
+			fences[X + 1] = {}
+		end
+		if fences[X - 1][Z] == nil then
+			fences[X - 1][Z] = {}
+		end
+		if fences[X + 1][Z] == nil then
+			fences[X + 1][Z] = {}
+		end
+		if fences[X][Z - 1] == nil then
+			fences[X][Z - 1] = {}
+		end
+		if fences[X][Z + 1] == nil then
+			fences[X][Z + 1] = {}
+		end
+		if fences[X + 1][Z + 1] == nil then
+			fences[X + 1][Z + 1] = {}
+		end
+		if fences[X - 1][Z + 1] == nil then
+			fences[X - 1][Z + 1] = {}
+		end
+		if fences[X + 1][Z - 1] == nil then
+			fences[X + 1][Z - 1] = {}
+		end
+		if fences[X - 1][Z - 1] == nil then
+			fences[X - 1][Z - 1] = {}
+		end
 		if fences[X][Z][Player_name] == nil then
-			register(X, Z, Player_name)
+			register_fence(X, Z, Player_name)
 			if friend1 ~= nil then
-				register(X, Z, friend1)
+				register_fence(X, Z, friend1)
 			end
 			if friend2 ~= nil then
-				register(X, Z, friend2)
+				register_fence(X, Z, friend2)
 			end
 		end
 	end
