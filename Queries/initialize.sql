@@ -3,8 +3,51 @@ CREATE TABLE IF NOT EXISTS "signs" (
 	`X` INTEGER,
 	`Y` INTEGER,
 	`Z` INTEGER,
+	`World` TEXT,
+	`Player_name` TEXT
+);
+
+CREATE TABLE IF NOT EXISTS "fences" (
+	`id`	INTEGER PRIMARY KEY,
+	`X` INTEGER,
+	`Z` INTEGER,
+	`World` TEXT,
+	`Player_name` TEXT
+);
+
+CREATE TABLE IF NOT EXISTS "marker" (
+	`id`	INTEGER PRIMARY KEY,
+	`X` INTEGER,
+	`Y` INTEGER,
+	`Z` INTEGER,
 	`World` TEXT
 );
+
+CREATE TABLE IF NOT EXISTS "temptable" (
+	`id`	INTEGER PRIMARY KEY,
+	`X` INTEGER,
+	`Y` INTEGER,
+	`Z` INTEGER,
+	`World` TEXT,
+	`Player_name` TEXT
+);
+
+INSERT INTO "temptable" SELECT DISTINCT * FROM "signs" GROUP BY `id`;
+
+DROP TABLE "signs";
+
+CREATE TABLE IF NOT EXISTS "signs" (
+	`id`	INTEGER PRIMARY KEY,
+	`X` INTEGER,
+	`Y` INTEGER,
+	`Z` INTEGER,
+	`World` TEXT,
+	`Player_name` TEXT
+);
+
+INSERT INTO "signs" SELECT * FROM "temptable";
+
+DROP TABLE "temptable";
 
 CREATE TABLE IF NOT EXISTS "temptable" (
 	`id`	INTEGER PRIMARY KEY,
@@ -14,15 +57,42 @@ CREATE TABLE IF NOT EXISTS "temptable" (
 	`World` TEXT
 );
 
-INSERT INTO "temptable" SELECT DISTINCT * FROM "signs" GROUP BY `id`;
+INSERT INTO "temptable" SELECT DISTINCT * FROM "marker" GROUP BY `id`;
 
-DROP TABLE "signs";
-CREATE TABLE IF NOT EXISTS "signs" (
+DROP TABLE "marker";
+
+CREATE TABLE IF NOT EXISTS "marker" (
 	`id`	INTEGER PRIMARY KEY,
 	`X` INTEGER,
 	`Y` INTEGER,
 	`Z` INTEGER,
 	`World` TEXT
 );
-INSERT INTO "signs" SELECT * FROM "temptable";
+
+INSERT INTO "marker" SELECT * FROM "temptable";
+
+DROP TABLE "temptable";
+
+CREATE TABLE IF NOT EXISTS "temptable" (
+	`id`	INTEGER PRIMARY KEY,
+	`X` INTEGER,
+	`Z` INTEGER,
+	`World` TEXT,
+	`Player_name` TEXT
+);
+
+INSERT INTO "temptable" SELECT DISTINCT * FROM "fences" GROUP BY `id`;
+
+DROP TABLE "fences";
+
+CREATE TABLE IF NOT EXISTS "fences" (
+	`id`	INTEGER PRIMARY KEY,
+	`X` INTEGER,
+	`Z` INTEGER,
+	`World` TEXT,
+	`Player_name` TEXT
+);
+
+INSERT INTO "fences" SELECT * FROM "temptable";
+
 DROP TABLE "temptable"

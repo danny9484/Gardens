@@ -10,7 +10,7 @@ function Initialize(Plugin)
 	cPluginManager:AddHook(cPluginManager.HOOK_PLAYER_BREAKING_BLOCK, MyOnPlayerBreakingBlock);
 	cPluginManager:AddHook(cPluginManager.HOOK_PLAYER_PLACING_BLOCK, MyOnPlayerPlacingBlock);
 	--cPluginManager:AddHook(cPluginManager.HOOK_WORLD_STARTED, MyOnWorldStarted);
-	cPluginManager:AddHook(cPluginManager.HOOK_PLAYER_JOINED, MyOnPlayerJoined);
+	--cPluginManager:AddHook(cPluginManager.HOOK_PLAYER_JOINED, MyOnPlayerJoined);
 
 	PLUGIN = Plugin -- NOTE: only needed if you want OnDisable() to use GetName() or something like that
 
@@ -24,19 +24,57 @@ function Initialize(Plugin)
 	fences = {}
 	marker = {}
 	signs = {}
-	loaded = 0
-	-- for reload (for some reason reading the world_name from database and read signs didn't work)
-	-- (But with ForEachWorld it strangely works idk)
-	--cRoot:Get():ForEachWorld(callback)
+	signs_maybe = {}
+
+	Initialize_signs()
+	Initialize_marker()
+	Initialize_fences()
 
 	LOG("Initialized " .. Plugin:GetName() .. " v." .. Plugin:GetVersion())
 	return true
 end
 
-function MyOnPlayerJoined(Player)
-	if loaded == 0 then
+function Initialize_marker()
 		local callback = function(World)
-			LOG("test1")
+			local world_name = World:GetName()
+			g_Storage:ExecuteCommand("initialize_marker",
+				{
+					World_name = world_name
+				},
+				function(a_Values)
+					local X = a_Values["X"]
+					local Y = a_Values["Y"]
+					local Z = a_Values["Z"]
+					local World_name = a_Values["World"]
+					set_marker(X, Y, Z, World_name)
+				end
+			)
+		end
+		cRoot:Get():ForEachWorld(callback)
+end
+
+function Initialize_fences()
+		local callback = function(World)
+			local world_name = World:GetName()
+			g_Storage:ExecuteCommand("initialize_fences",
+				{
+					World_name = world_name
+				},
+				function(a_Values)
+					local X = a_Values["X"]
+					local Y = a_Values["Y"]
+					local Z = a_Values["Z"]
+					local World_name = a_Values["World"]
+					local Player_name = a_Values["Player_name"]
+					set_fences(X, Z, Player_name, World_name)
+				end
+			)
+		end
+		cRoot:Get():ForEachWorld(callback)
+end
+
+function Initialize_signs()
+		local callback = function(World)
 			local world_name = World:GetName()
 			g_Storage:ExecuteCommand("initialize_signs",
 				{
@@ -46,18 +84,58 @@ function MyOnPlayerJoined(Player)
 					local X = a_Values["X"]
 					local Y = a_Values["Y"]
 					local Z = a_Values["Z"]
-					sign_found(World, X, Y, Z)
+					local World_name = a_Values["World"]
+					local Player_name = a_Values["Player_name"]
+					set_signs(X, Y, Z, Player_name, World_name)
 				end
 			)
 		end
 		cRoot:Get():ForEachWorld(callback)
-		loaded = 1
-	end
 end
 
-function save_sign(X, Y, Z, World)
+function save_marker(X, Y, Z, World)
+	-- register new sign in database
+	g_Storage:ExecuteCommand("save_marker",
+		{
+			X = X,
+			Y = Y,
+			Z = Z,
+			World = World:GetName(),
+		}
+	)
+	return true
+end
+
+function save_fence(X, Z, Player_name, World)
+	-- register new sign in database
+	g_Storage:ExecuteCommand("save_fence",
+		{
+			X = X,
+			Z = Z,
+			World = World:GetName(),
+			Player_name = Player_name
+		}
+	)
+	return true
+end
+
+function save_sign(X, Y, Z, World, Player_name)
 	-- register new sign in database
 	g_Storage:ExecuteCommand("save_sign",
+		{
+			X = X,
+			Y = Y,
+			Z = Z,
+			World = World:GetName(),
+			Player_name = Player_name
+		}
+	)
+	return true
+end
+
+function remove_sign(X, Y, Z, World)
+	-- remove sign in database
+	g_Storage:ExecuteCommand("remove_sign",
 		{
 			X = X,
 			Y = Y,
@@ -68,9 +146,21 @@ function save_sign(X, Y, Z, World)
 	return true
 end
 
-function remove_sign(X, Y, Z, World)
+function remove_fence(X, Z, World)
 	-- remove sign in database
-	g_Storage:ExecuteCommand("remove_sign",
+	g_Storage:ExecuteCommand("remove_fence",
+		{
+			X = X,
+			Z = Z,
+			World = World:GetName()
+		}
+	)
+	return true
+end
+
+function remove_marker(X, Y, Z, World)
+	-- remove sign in database
+	g_Storage:ExecuteCommand("remove_marker",
 		{
 			X = X,
 			Y = Y,
@@ -92,10 +182,10 @@ function create_database()
 end
 
 function MyOnPlayerPlacingBlock(Player, BlockX, BlockY, BlockZ, BlockType, BlockMeta)
-	if fences[BlockX] == nil or fences[BlockX][BlockZ] == nil then	-- belongs the block to nobody?
+	if fences[BlockX] == nil or fences[BlockX][BlockZ][Player:GetWorld()] == nil then	-- belongs the block to nobody?
 		return false
 	end
-	if fences[BlockX][BlockZ][Player:GetName()] == true then -- belongs the block to the player breaking it?
+	if fences[BlockX][BlockZ][Player:GetWorld()][Player:GetName()] == true then -- belongs the block to the player breaking it?
 		return false
 	end
 	Player:SendMessage("you can't place in this garden")
@@ -103,7 +193,7 @@ function MyOnPlayerPlacingBlock(Player, BlockX, BlockY, BlockZ, BlockType, Block
 end
 
 function MyOnPlayerBreakingBlock(Player, BlockX, BlockY, BlockZ, BlockFace, BlockType, BlockMeta)
-	if signs ~= nil and signs[BlockX] ~= nil and signs[BlockX][BlockY] ~= nil and signs[BlockX][BlockY][BlockZ] ~= nil and signs[BlockX][BlockY][BlockZ][Player:GetName()] == true then
+	if signs ~= nil and signs[BlockX] ~= nil and signs[BlockX][BlockY] ~= nil and signs[BlockX][BlockY][BlockZ] ~= nil and signs[BlockX][BlockY][BlockZ][Player:GetWorld():GetName()] ~= nil and signs[BlockX][BlockY][BlockZ][Player:GetWorld():GetName()][Player:GetName()] == true then
 		local World = Player:GetWorld()
 		remove_sign(BlockX, BlockY, BlockZ, World)
 		local X, Y, Z = check_fence_gate(World, BlockX, BlockY, BlockZ)
@@ -115,14 +205,14 @@ function MyOnPlayerBreakingBlock(Player, BlockX, BlockY, BlockZ, BlockFace, Bloc
 		Player:SendMessage("you removed your Garden")
 		return false
 	end
-	if marker ~= nil and marker[BlockX] ~= nil and marker[BlockX][BlockY] ~= nil and marker[BlockX][BlockY][BlockZ] ~= nil then
+	if marker ~= nil and marker[BlockX] ~= nil and marker[BlockX][BlockY] ~= nil and marker[BlockX][BlockY][BlockZ] ~= nil and marker[BlockX][BlockY][BlockZ][Player:GetWorld():GetName()] ~= nil then
 		Player:SendMessage("destroy the Garden Sign first to remove your Garden")
 		return true
 	end
-	if fences[BlockX] == nil or fences[BlockX][BlockZ] == nil then	-- belongs the block to nobody?
+	if fences[BlockX] == nil or fences[BlockX][BlockZ][Player:GetWorld()] == nil then	-- belongs the block to nobody?
 		return false
 	end
-	if fences[BlockX][BlockZ][Player:GetName()] == true then -- belongs the block to the player breaking it?
+	if fences[BlockX][BlockZ][Player:GetWorld()][Player:GetName()] == true then -- belongs the block to the player breaking it?
 		return false
 	end
 	Player:SendMessage("you can't destroy this garden")
@@ -137,17 +227,17 @@ function MyOnChunkAvailable(World, ChunkX, ChunkZ)
   while RelX < 16 do
     while RelY < height do
       while RelZ < 16 do
-        if World:GetBlock(RelX + ChunkX, RelY, RelZ + ChunkZ) == 63 then
+        if signs_maybe[RelX + ChunkX] ~= nil and signs_maybe[RelX + ChunkX][RelY] ~= nil and signs_maybe[RelX + ChunkX][RelY][RelZ + ChunkZ] == true then
           sign_found(World, RelX + ChunkX, RelY, RelZ + ChunkZ)
         end
         RelZ = RelZ + 1
       end
-      if World:GetBlock(RelX + ChunkX, RelY, RelZ + ChunkZ) == 63 then
+      if signs_maybe[RelX + ChunkX] ~= nil and signs_maybe[RelX + ChunkX][RelY] ~= nil and signs_maybe[RelX + ChunkX][RelY][RelZ + ChunkZ] == true then
         sign_found(World, RelX + ChunkX, RelY, RelZ + ChunkZ)
       end
       RelY = RelY + 1
     end
-    if World:GetBlock(RelX + ChunkX, RelY, RelZ + ChunkZ) == 63 then
+    if signs_maybe[RelX + ChunkX] ~= nil and signs_maybe[RelX + ChunkX][RelY] ~= nil and signs_maybe[RelX + ChunkX][RelY][RelZ + ChunkZ] == true then
     sign_found(World, RelX + ChunkX, RelY, RelZ + ChunkZ)
     end
     RelX = RelX + 1
@@ -170,35 +260,44 @@ function process_garden(World, X, Y, Z, register, Player_name, friend1, friend2)
 	return true
 end
 
-function register_marker(X, Y, Z)
-	marker[X][Y][Z] = true
+function register_marker(X, Y, Z, World)
+	marker[X][Y][Z][World:GetName()] = true
 end
 
-function register_fence(X, Z, Player_name)
-	fences[X][Z][Player_name] = true
-	fences[X + 1][Z][Player_name] = true
-	fences[X + 1][Z + 1][Player_name] = true
-	fences[X + 1][Z - 1][Player_name] = true
-	fences[X - 1][Z][Player_name] = true
-	fences[X - 1][Z + 1][Player_name] = true
-	fences[X + 1][Z - 1][Player_name] = true
-	fences[X][Z + 1][Player_name] = true
-	fences[X][Z - 1][Player_name] = true
+function register_fence(X, Z, Player_name, World)
+	fences[X][Z][World:GetName()][Player_name] = true
+	fences[X + 1][Z][World:GetName()][Player_name] = true
+	fences[X + 1][Z + 1][World:GetName()][Player_name] = true
+	fences[X + 1][Z - 1][World:GetName()][Player_name] = true
+	fences[X - 1][Z][World:GetName()][Player_name] = true
+	fences[X - 1][Z + 1][World:GetName()][Player_name] = true
+	fences[X + 1][Z - 1][World:GetName()][Player_name] = true
+	fences[X][Z + 1][World:GetName()][Player_name] = true
+	fences[X][Z - 1][World:GetName()][Player_name] = true
 	return true
 end
 
-function check_variables(X, Y, Z)
+function check_variables(X, Y, Z, World)
 	if marker[X] == nil then
 		marker[X] = {}
 	end
 	if marker[X][Y] == nil then
 		marker[X][Y] = {}
 	end
+	if marker[X][Y][Z] == nil then
+		marker[X][Y][Z] = {}
+	end
+	if marker[X][Y][Z][World:GetName()] == nil then
+		marker[X][Y][Z][World:GetName()] = {}
+	end
 	if fences[X] == nil then
 		fences[X] = {}
 	end
 	if fences[X][Z] == nil then
 		fences[X][Z] = {}
+	end
+	if fences[X][Z][World:GetName()] == nil then
+		fences[X][Z][World:GetName()] = {}
 	end
 	if fences[X - 1] == nil then
 		fences[X - 1] = {}
@@ -230,38 +329,70 @@ function check_variables(X, Y, Z)
 	if fences[X - 1][Z - 1] == nil then
 		fences[X - 1][Z - 1] = {}
 	end
+	if fences[X - 1][Z][World:GetName()] == nil then
+		fences[X - 1][Z][World:GetName()] = {}
+	end
+	if fences[X + 1][Z][World:GetName()] == nil then
+		fences[X + 1][Z][World:GetName()] = {}
+	end
+	if fences[X][Z - 1][World:GetName()] == nil then
+		fences[X][Z - 1][World:GetName()] = {}
+	end
+	if fences[X][Z + 1][World:GetName()] == nil then
+		fences[X][Z + 1][World:GetName()] = {}
+	end
+	if fences[X + 1][Z + 1][World:GetName()] == nil then
+		fences[X + 1][Z + 1][World:GetName()] = {}
+	end
+	if fences[X - 1][Z + 1][World:GetName()] == nil then
+		fences[X - 1][Z + 1][World:GetName()] = {}
+	end
+	if fences[X + 1][Z - 1][World:GetName()] == nil then
+		fences[X + 1][Z - 1][World:GetName()] = {}
+	end
+	if fences[X - 1][Z - 1][World:GetName()] == nil then
+		fences[X - 1][Z - 1][World:GetName()] = {}
+	end
 end
 
-function deregister_fence(X, Z)
-	fences[X][Z] = nil
-	fences[X + 1][Z] = nil
-	fences[X + 1][Z + 1] = nil
-	fences[X + 1][Z - 1] = nil
-	fences[X - 1][Z] = nil
-	fences[X - 1][Z + 1] = nil
-	fences[X + 1][Z - 1] = nil
-	fences[X][Z + 1] = nil
-	fences[X][Z - 1] = nil
+function deregister_fence(X, Z, World)
+	fences[X][Z][World:GetName()] = nil
+	fences[X + 1][Z][World:GetName()] = nil
+	fences[X + 1][Z + 1][World:GetName()] = nil
+	fences[X + 1][Z - 1][World:GetName()] = nil
+	fences[X - 1][Z][World:GetName()] = nil
+	fences[X - 1][Z + 1][World:GetName()] = nil
+	fences[X + 1][Z - 1][World:GetName()] = nil
+	fences[X][Z + 1][World:GetName()] = nil
+	fences[X][Z - 1][World:GetName()] = nil
 end
 
-function deregister_marker(X, Y, Z)
-	marker[X][Y][Z] = nil
+function deregister_marker(X, Y, Z, World)
+	marker[X][Y][Z][World:GetName()] = nil
 end
+
+
 
 function fence_function(World, X, Y, Z, D, register, deregister, Player_name, friend1, friend2)
 	if deregister then
-			deregister_fence(X, Z)
-			deregister_marker(X, Y, Z)
+			deregister_fence(X, Z, World)
+			remove_fence(X, Z, World)
+			deregister_marker(X, Y, Z, World)
+			remove_marker(X, Y, Z, World)
 	end
 	if register then
-		check_variables(X, Y, Z)
-			register_fence(X, Z, Player_name)
-			register_marker(X, Y, Z)
+		check_variables(X, Y, Z, World)
+			register_fence(X, Z, Player_name, World)
+			save_fence(X, Z, Player_name, World)
+			register_marker(X, Y, Z, World)
+			save_marker(X, Y, Z, World)
 			if friend1 ~= nil then
-				register_fence(X, Z, friend1)
+				register_fence(X, Z, friend1, World)
+				save_fence(X, Z, friend1, World)
 			end
 			if friend2 ~= nil then
-				register_fence(X, Z, friend2)
+				register_fence(X, Z, friend2, World)
+				save_fence(X, Z, friend2, World)
 			end
 	end
 	if (World:GetBlock(X + 1, Y, Z) == 85 or World:GetBlock(X + 1, Y, Z) == 107) and D ~= "x-" then
@@ -309,7 +440,33 @@ function check_fence_gate(World, X, Y, Z, register, Player_name)
   return false
 end
 
-function set_signs(X, Y, Z, Line2)
+function set_fences(X, Z, Line2, World_name)
+	if fences[X] == nil then
+		fences[X] = {}
+	end
+	if fences[X][Z] == nil then
+		fences[X][Z] = {}
+	end
+	if fences[X][Z][World_name] == nil then
+		fences[X][Z][World_name] = {}
+	end
+	fences[X][Z][World_name][Line2] = true
+end
+
+function set_marker(X, Y, Z, World_name)
+	if marker[X] == nil then
+		marker[X] = {}
+	end
+	if marker[X][Y] == nil then
+		marker[X][Y] = {}
+	end
+	if marker[X][Y][Z] == nil then
+		marker[X][Y][Z] = {}
+	end
+	marker[X][Y][Z][World_name] = true
+end
+
+function set_signs(X, Y, Z, Line2, World_name)
 	if signs[X] == nil then
 		signs[X] = {}
 	end
@@ -319,13 +476,15 @@ function set_signs(X, Y, Z, Line2)
 	if signs[X][Y][Z] == nil then
 		signs[X][Y][Z] = {}
 	end
-	signs[X][Y][Z][Line2] = true
+	if signs[X][Y][Z][World_name] == nil then
+		signs[X][Y][Z][World_name] = {}
+	end
+	signs[X][Y][Z][World_name][Line2] = true
 end
 
 function sign_found(World, X, Y, Z)
-
   local sign_valid, Line1, Line2, Line3, Line4 = World:GetSignLines(X , Y, Z)
-	LOG("lol")
+	LOG(X .. " " .. Y .. " " .. Z)
 	if sign_valid then
 		LOG("test123")
 	else
@@ -347,8 +506,8 @@ function MyOnUpdatingSign(World, BlockX, BlockY, BlockZ, Line1, Line2, Line3, Li
     if Line1 == "[garden]" then
       if process_garden(World, BlockX, BlockY, BlockZ, false, Player:GetName(), Line3, Line4) then
         Player:SendMessage("you created a Garden")
-				save_sign(BlockX, BlockY, BlockZ, World)
-				set_signs(BlockX, BlockY, BlockZ, Player:GetName())
+				save_sign(BlockX, BlockY, BlockZ, World, Player:GetName())
+				set_signs(BlockX, BlockY, BlockZ, Player:GetName(), World:GetName())
         return false, Line1, Player:GetName(), Line3, Line4;
       end
       Player:SendMessage("your Garden is broken")

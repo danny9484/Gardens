@@ -1,13 +1,11 @@
-INSERT INTO "signs" (
+INSERT INTO "fences" (
   X,
-  Y,
   Z,
   World,
   Player_name
 )
 VALUES (
   $X,
-  $Y,
   $Z,
   $World,
   $Player_name
