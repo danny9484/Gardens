@@ -2,11 +2,13 @@ INSERT INTO "marker" (
   X,
   Y,
   Z,
-  World
+  World,
+  Player_name
 )
 VALUES (
   $X,
   $Y,
   $Z,
-  $World
+  $World,
+  $Player_name
 )
