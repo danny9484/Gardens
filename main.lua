@@ -21,7 +21,9 @@ function Initialize(Plugin)
 
 	-- Global variables
 	fences = {}
+	fences_temp = {}
 	marker = {}
+	marker_temp = {}
 	signs = {}
 
 	Initialize_signs()
@@ -216,8 +218,12 @@ function process_garden(World, X, Y, Z, register, Player_name, friend1, friend2)
 	return true
 end
 
-function register_marker(X, Y, Z, World)
-	marker[X][Y][Z][World:GetName()] = true
+function register_marker(X, Y, Z, Player_name, World)
+	marker[X][Y][Z][World:GetName()][Player_name] = true
+end
+
+function register_temp_marker(X, Y, Z, Player_name, World)
+	marker_temp[X][Y][Z][World:GetName()][Player_name] = true
 end
 
 function register_fence(X, Z, Player_name, World)
@@ -246,6 +252,81 @@ function check_variables(X, Y, Z, World)
 	end
 	if marker[X][Y][Z][World_name] == nil then
 		marker[X][Y][Z][World_name] = {}
+	end
+	if marker_temp[X] == nil then
+		marker_temp[X] = {}
+	end
+	if marker_temp[X][Y] == nil then
+		marker_temp[X][Y] = {}
+	end
+	if marker_temp[X][Y][Z] == nil then
+		marker_temp[X][Y][Z] = {}
+	end
+	if marker_temp[X][Y][Z][World_name] == nil then
+		marker_temp[X][Y][Z][World_name] = {}
+	end
+	if fences_temp[X] == nil then
+		fences_temp[X] = {}
+	end
+	if fences_temp[X][Z] == nil then
+		fences_temp[X][Z] = {}
+	end
+	if fences_temp[X][Z][World_name] == nil then
+		fences_temp[X][Z][World_name] = {}
+	end
+	if fences_temp[X - 1] == nil then
+		fences_temp[X - 1] = {}
+	end
+	if fences_temp[X + 1] == nil then
+		fences_temp[X + 1] = {}
+	end
+	if fences_temp[X - 1][Z] == nil then
+		fences_temp[X - 1][Z] = {}
+	end
+	if fences_temp[X + 1][Z] == nil then
+		fences_temp[X + 1][Z] = {}
+	end
+	if fences_temp[X][Z - 1] == nil then
+		fences_temp[X][Z - 1] = {}
+	end
+	if fences_temp[X][Z + 1] == nil then
+		fences_temp[X][Z + 1] = {}
+	end
+	if fences_temp[X + 1][Z + 1] == nil then
+		fences_temp[X + 1][Z + 1] = {}
+	end
+	if fences_temp[X - 1][Z + 1] == nil then
+		fences_temp[X - 1][Z + 1] = {}
+	end
+	if fences_temp[X + 1][Z - 1] == nil then
+		fences_temp[X + 1][Z - 1] = {}
+	end
+	if fences_temp[X - 1][Z - 1] == nil then
+		fences_temp[X - 1][Z - 1] = {}
+	end
+	if fences_temp[X - 1][Z][World_name] == nil then
+		fences_temp[X - 1][Z][World_name] = {}
+	end
+	if fences_temp[X + 1][Z][World_name] == nil then
+		fences_temp[X + 1][Z][World_name] = {}
+	end
+	if fences_temp[X][Z - 1][World_name] == nil then
+		fences_temp[X][Z - 1][World_name] = {}
+	end
+	if fences_temp[X][Z + 1][World_name] == nil then
+		fences_temp[X][Z + 1][World_name] = {}
+	end
+	if fences_temp[X + 1][Z + 1][World_name] == nil then
+		fences_temp[X + 1][Z + 1][World_name] = {}
+	end
+	if fences_temp[X - 1][Z + 1][World_name] == nil then
+		fences_temp[X - 1][Z + 1][World_name] = {}
+	end
+	if fences_temp[X + 1][Z - 1][World_name] == nil then
+		fences_temp[X + 1][Z - 1][World_name] = {}
+	end
+	if fences_temp[X - 1][Z - 1][World_name] == nil then
+		fences_temp[X - 1][Z - 1][World_name] = {}
 	end
 	if fences[X] == nil then
 		fences[X] = {}
@@ -328,8 +409,6 @@ function deregister_marker(X, Y, Z, World)
 	marker[X][Y][Z][World:GetName()] = nil
 end
 
-
-
 function fence_function(World, X, Y, Z, D, register, deregister, Player_name, friend1, friend2)
 	if deregister then
 			deregister_fence(X, Z, World)
@@ -339,17 +418,18 @@ function fence_function(World, X, Y, Z, D, register, deregister, Player_name, fr
 	if register then
 			check_variables(X, Y, Z, World)
 			register_fence(X, Z, Player_name, World)
-			register_marker(X, Y, Z, World)
+			register_marker(X, Y, Z, Player_name, World)
+			register_temp_marker(X, Y, Z, Player_name, World)
 			LOG(X .. " " .. Y .. " " .. Z .. " " .. World:GetName())
-			save_marker(X, Y, Z, Player_name, World)
+			--save_marker(X, Y, Z, Player_name, World)
 			--save_fence_marker(X, Y, Z, Player_name, World)
 			if friend1 ~= "" then
 				register_fence(X, Z, friend1, World)
-				save_marker(X, Z, friend1, World)
+				--save_marker(X, Z, friend1, World)
 			end
 			if friend2 ~= "" then
 				register_fence(X, Z, friend2, World)
-				save_marker(X, Z, friend2, World)
+				--save_marker(X, Z, friend2, World)
 			end
 	end
 	if (World:GetBlock(X + 1, Y, Z) == 85 or World:GetBlock(X + 1, Y, Z) == 107) and D ~= "x-" then
@@ -377,8 +457,40 @@ function check_fence(World, X, Y, Z, register, Player_name, friend1, friend2)
 			return false
 		end
   end
+	save_fence_marker()
 	LOG("finished")
 	return true
+end
+
+function save_fence_marker()
+	local db = sqlite3.open(cPluginManager:Get():GetCurrentPlugin():GetLocalFolder() .. "/storage.sqlite")
+	db:exec("BEGIN TRANSACTION")  -- Postpone all DB changes into one big step, to save on disk I/O
+	local stmt, err, errmsg = db:prepare("INSERT or UPDATE INTO marker (X, Y, Z, World, Player_name) VALUES (?, ?, ?, ?, ?)")
+	if (not stmt) then
+		LOG(err .. " " .. errmsg)
+	end
+	for i, name in pairs(marker_temp) do
+		local X = i
+		for i, name in pairs(marker_temp[X]) do
+			local Y = i
+			for i, name in pairs(marker_temp[X][Y]) do
+				local Z = i
+				for i,name in pairs(marker_temp[X][Y][Z]) do
+					local World_name = i
+					for i, name in pairs(marker_temp[X][Y][Z][World_name]) do
+						local Player_name = i
+						LOG("Saving: " .. X .. "X " .. Y .. "Y " .. Z .. "Z " .. World_name .. " " .. Player_name)
+						stmt:bind_names({X, Y, Z, World_name, Player_name})
+						stmt:step()  -- execute the statement (once); the space before S should not be there (forum limit)
+						stmt:reset()  -- reset the statement so that the next "wall" values can be inserted
+					end
+				end
+			end
+		end
+	end
+	stmt:finalize()
+	db:exec("COMMIT")  -- Now put everything queued so far into the DB file
+	marker_temp = {}
 end
 
 function check_fence_gate(World, X, Y, Z, register, Player_name)
